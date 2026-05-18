@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DIP Monitor">
+<meta name="theme-color" content="#080b0f">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23080b0f' rx='32'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' fill='%2300e5cc' font-family='monospace' font-size='38' font-weight='bold' dominant-baseline='middle'%3EDIP%3C/text%3E%3Ctext x='50%25' y='75%25' text-anchor='middle' fill='%2300e676' font-family='monospace' font-size='20' dominant-baseline='middle'%3E%E2%96%B2%E2%96%BC%3C/text%3E%3C/svg%3E">
+<title>DIP Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+:root {
+  --bg:#080b0f; --card:#0e1218; --border:#1a2030; --border2:#243040;
+  --text:#d8e4f0; --muted:#3d5060; --muted2:#5a7080;
+  --accent:#00e5cc; --accent2:#00b8a4;
+  --danger:#ff3d5a; --warn:#ffaa00; --safe:#00e676; --blue:#4da6ff;
+  --mono:'Share Tech Mono',monospace; --sans:'Noto Sans JP',sans-serif;
+  --s1-bg:rgba(255,220,50,.07); --s1-border:rgba(255,220,50,.4); --s1-glow:rgba(255,220,50,.15); --s1-text:#ffe040;
+  --s2-bg:rgba(255,140,0,.10);   --s2-border:rgba(255,140,0,.5);   --s2-glow:rgba(255,140,0,.18);   --s2-text:#ff9a20;
+  --s3-bg:rgba(255,50,80,.12);   --s3-border:rgba(255,50,80,.6);   --s3-glow:rgba(255,50,80,.22);   --s3-text:#ff4466;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:72px;overflow-x:hidden;padding-top:env(safe-area-inset-top);}
+
+.header{background:linear-gradient(180deg,#0a0f16,#080b0f);border-bottom:1px solid var(--border);padding:12px 16px 10px;position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;}
+.hlogo{font-family:var(--mono);font-size:15px;letter-spacing:3px;color:var(--accent);text-shadow:0 0 12px rgba(0,229,204,.4);}
+.hsub{font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:2px;letter-spacing:1px;}
+.live-pill{display:flex;align-items:center;gap:5px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:20px;padding:4px 10px;font-family:var(--mono);font-size:9px;color:var(--safe);}
+.live-dot{width:5px;height:5px;background:var(--safe);border-radius:50%;animation:blink 1.4s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* VIX BAR */
+.vix-bar{background:var(--card);border-bottom:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;gap:10px;}
+.vix-label{font-family:var(--mono);font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;white-space:nowrap;}
+.vix-value{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--warn);min-width:50px;}
+.vix-track{flex:1;height:5px;background:#1a2030;border-radius:3px;overflow:hidden;position:relative;}
+.vix-fill{height:100%;background:linear-gradient(90deg,var(--safe) 0%,var(--warn) 50%,var(--danger) 100%);border-radius:3px;transition:width .6s ease;}
+.vix-marker{position:absolute;top:-2px;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid #080b0f;transform:translateX(-50%);transition:left .6s ease;box-shadow:0 0 6px rgba(255,255,255,.4);}
+.vix-status{font-family:var(--mono);font-size:10px;white-space:nowrap;font-weight:600;}
+
+/* STATUS BAR */
+.status-bar{background:var(--card);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+.status-bar::-webkit-scrollbar{display:none;}
+.stat-pill{display:flex;align-items:center;gap:6px;padding:0 12px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;}
+.stat-pill:first-child{padding-left:0;} .stat-pill:last-child{border-right:none;}
+.stat-label{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;}
+.stat-value{font-family:var(--mono);font-size:13px;font-weight:600;}
+
+.view{display:none;} .view.active{display:block;}
+
+.section-header{padding:10px 16px 6px;display:flex;justify-content:space-between;align-items:center;}
+.section-header span{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;}
+.cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px;}
+@media(min-width:480px){.cards-grid{grid-template-columns:1fr 1fr 1fr;}}
+
+.asset-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;cursor:pointer;position:relative;overflow:hidden;transition:all .25s;}
+.asset-card:active{transform:scale(.96);}
+.asset-card.stage-0{}
+.asset-card.stage-1{background:var(--s1-bg);border-color:var(--s1-border);box-shadow:0 0 14px var(--s1-glow);}
+.asset-card.stage-2{background:var(--s2-bg);border-color:var(--s2-border);box-shadow:0 0 16px var(--s2-glow);}
+.asset-card.stage-3{background:var(--s3-bg);border-color:var(--s3-border);box-shadow:0 0 20px var(--s3-glow);}
+.card-stripe{position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0;}
+.stage-0 .card-stripe{background:var(--border2);}
+.stage-1 .card-stripe{background:linear-gradient(90deg,#ffe040,#ffc800);}
+.stage-2 .card-stripe{background:linear-gradient(90deg,#ff9a20,#ff6000);}
+.stage-3 .card-stripe{background:linear-gradient(90deg,#ff4466,#cc0033);}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-top:4px;}
+.card-ticker{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);}
+.stage-badge{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.8px;padding:2px 5px;border-radius:4px;white-space:nowrap;text-transform:uppercase;}
+.sb-0{background:rgba(61,80,96,.2);color:var(--muted2);}
+.sb-1{background:rgba(255,224,64,.12);color:var(--s1-text);}
+.sb-2{background:rgba(255,154,32,.14);color:var(--s2-text);}
+.sb-3{background:rgba(255,68,102,.15);color:var(--s3-text);}
+.card-name{font-size:9px;color:var(--muted2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-price{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:7px;}
+.card-chg{font-family:var(--mono);font-size:9px;margin-top:1px;}
+.pos{color:var(--safe);} .neg{color:var(--danger);}
+.card-metrics{margin-top:7px;display:flex;flex-direction:column;gap:3px;}
+.m-row{display:flex;justify-content:space-between;align-items:center;}
+.m-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.m-val{font-family:var(--mono);font-size:9px;font-weight:600;}
+.mv-ok{color:var(--safe);} .mv-warn{color:var(--warn);} .mv-n{color:var(--muted2);} .mv-pri{color:var(--text);}
+.card-loading{color:var(--muted2);font-family:var(--mono);font-size:10px;margin-top:16px;text-align:center;}
+.stage-bar{display:flex;gap:3px;margin-top:8px;}
+.stage-pip{flex:1;height:3px;border-radius:2px;background:var(--border2);}
+.stage-pip.active-1{background:#ffe040;}
+.stage-pip.active-2{background:#ff9a20;}
+.stage-pip.active-3{background:#ff4466;}
+
+#detail-view{padding:12px 14px;display:none;}
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;}
+.d-header{background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:10px;}
+.d-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.d-ticker{font-family:var(--mono);font-size:24px;font-weight:600;}
+.d-name{font-size:11px;color:var(--muted2);margin-top:3px;}
+.d-price{font-family:var(--mono);font-size:30px;font-weight:600;margin-top:10px;}
+.d-chg{font-family:var(--mono);font-size:12px;margin-top:2px;}
+.d-section{background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:14px;margin-bottom:10px;}
+.d-sec-title{font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;}
+.d-metric{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
+.d-metric:last-child{border-bottom:none;}
+.dm-name{font-size:12px;} .dm-sub{font-size:9px;color:var(--muted2);margin-top:2px;}
+.dm-val{font-family:var(--mono);font-size:16px;font-weight:600;}
+.dm-bar{height:2px;background:var(--border);border-radius:1px;margin-top:4px;width:70px;overflow:hidden;}
+.dm-bar-fill{height:100%;border-radius:1px;}
+
+.steps-grid{display:flex;flex-direction:column;gap:6px;}
+.step-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);}
+.step-row.step-met-1{background:rgba(255,224,64,.07);border-color:rgba(255,224,64,.3);}
+.step-row.step-met-2{background:rgba(255,154,32,.09);border-color:rgba(255,154,32,.4);}
+.step-row.step-met-3{background:rgba(255,68,102,.10);border-color:rgba(255,68,102,.45);}
+.step-num{font-family:var(--mono);font-size:9px;font-weight:700;width:16px;flex-shrink:0;}
+.step-label{font-family:var(--mono);font-size:9px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.step-conds{flex:1;font-size:10px;color:var(--muted2);}
+.step-status{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;}
+.ss-met{background:rgba(0,230,118,.1);color:var(--safe);}
+.ss-unmet{background:rgba(61,80,96,.2);color:var(--muted2);}
+
+#signals-view{padding:10px 14px;}
+.sig-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:9px;cursor:pointer;}
+.sig-card-top{display:flex;justify-content:space-between;align-items:center;}
+.sig-ticker{font-family:var(--mono);font-size:17px;font-weight:600;}
+.sig-name{font-size:10px;color:var(--muted2);margin-top:2px;}
+.sig-metrics{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;}
+.sig-m{text-align:center;}
+.sig-m-lbl{font-size:9px;color:var(--muted2);}
+.sig-m-val{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:1px;}
+
+#rules-view{padding:10px 14px;}
+.rules-asset{background:var(--card);border:1px solid var(--border2);border-radius:12px;margin-bottom:10px;overflow:hidden;}
+.rules-asset-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.rh-ticker{font-family:var(--mono);font-size:13px;font-weight:600;}
+.rh-type{font-family:var(--mono);font-size:8px;color:var(--accent2);background:rgba(0,229,204,.08);padding:2px 7px;border-radius:4px;}
+.rules-table{width:100%;border-collapse:collapse;}
+.rules-table th{font-family:var(--mono);font-size:8px;color:var(--muted2);text-transform:uppercase;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.rules-table td{font-family:var(--mono);font-size:11px;padding:7px 10px;border-bottom:1px solid var(--border);}
+.rules-table tr:last-child td{border-bottom:none;}
+.rt-1{color:var(--s1-text)!important;} .rt-2{color:var(--s2-text)!important;} .rt-3{color:var(--s3-text)!important;}
+.stage-label-pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700;letter-spacing:.5px;}
+.slp-1{background:rgba(255,224,64,.12);color:var(--s1-text);}
+.slp-2{background:rgba(255,154,32,.14);color:var(--s2-text);}
+.slp-3{background:rgba(255,68,102,.15);color:var(--s3-text);}
+
+.refresh-wrap{padding:12px 14px 4px;}
+.refresh-btn{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#050d10;border:none;border-radius:10px;padding:11px 20px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;width:100%;letter-spacing:1px;transition:opacity .2s;}
+.refresh-btn:active{opacity:.8;} .refresh-btn:disabled{opacity:.5;cursor:not-allowed;}
+.updated-txt{text-align:center;font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:7px;margin-bottom:14px;}
+
+.bnav{position:fixed;bottom:0;left:0;right:0;background:rgba(8,11,15,.96);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(10px + env(safe-area-inset-bottom));}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px;}
+.bnav-icon{font-size:19px;}
+.bnav-lbl{font-family:var(--mono);font-size:9px;color:var(--muted2);transition:color .2s;}
+.bnav-item.active .bnav-lbl{color:var(--accent);}
+
+.error-txt{color:var(--danger);font-family:var(--mono);font-size:9px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .3s ease;}
+
+/* FX CARD */
+.fx-card{
+  background: linear-gradient(135deg, rgba(61,158,255,.08) 0%, rgba(0,229,204,.06) 100%);
+  border: 1px solid rgba(61,158,255,.35);
+  border-radius:12px; padding:11px;
+  position:relative; overflow:hidden;
+  box-shadow: 0 0 14px rgba(61,158,255,.1);
+}
+.fx-card::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, #3d9eff, #00e5cc);
+  border-radius:12px 12px 0 0;
+}
+.fx-tag{
+  font-family:var(--mono); font-size:7.5px; font-weight:700;
+  letter-spacing:1px; padding:2px 6px; border-radius:4px;
+  background:rgba(61,158,255,.15); color:#3d9eff;
+  text-transform:uppercase;
+}
+.fx-pair{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);margin-top:4px;}
+.fx-sub{font-size:9px;color:var(--muted2);margin-top:1px;}
+.fx-rate{font-family:var(--mono);font-size:22px;font-weight:700;color:#3d9eff;margin-top:8px;line-height:1;}
+.fx-unit{font-family:var(--mono);font-size:10px;color:var(--muted2);margin-top:2px;}
+.fx-chg{font-family:var(--mono);font-size:9px;margin-top:2px;}
+.fx-divider{height:1px;background:rgba(61,158,255,.15);margin:8px 0;}
+.fx-row{display:flex;justify-content:space-between;align-items:center;}
+.fx-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.fx-val{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--muted2);}
+.fx-loading{color:var(--muted2);font-family:var(--mono);font-size:10px;margin-top:16px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="hlogo">DIP MONITOR</div>
+    <div class="hsub" id="hdate">マルチアセット・ディップ戦略 3段階シグナル</div>
+  </div>
+  <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+</div>
+
+<!-- VIX BAR -->
+<div class="vix-bar">
+  <span class="vix-label">VIX</span>
+  <span class="vix-value" id="vix-val">—</span>
+  <div class="vix-track">
+    <div class="vix-fill" id="vix-fill" style="width:0%"></div>
+    <div class="vix-marker" id="vix-marker" style="left:0%"></div>
+  </div>
+  <span class="vix-status" id="vix-status" style="color:var(--muted2)">読込中</span>
+</div>
+
+<div class="status-bar">
+  <div class="stat-pill"><span class="stat-label">STRONG</span><span class="stat-value" id="cnt-3" style="color:var(--s3-text)">—</span></div>
+  <div class="stat-pill"><span class="stat-label">BUILD</span><span class="stat-value"   id="cnt-2" style="color:var(--s2-text)">—</span></div>
+  <div class="stat-pill"><span class="stat-label">SETUP</span><span class="stat-value"   id="cnt-1" style="color:var(--s1-text)">—</span></div>
+  <div class="stat-pill"><span class="stat-label">読込</span><span class="stat-value"    id="loaded-cnt" style="color:var(--muted2);font-size:10px">0/9</span></div>
+  <div class="stat-pill"><span class="stat-label">更新</span><span class="stat-value"    id="upd-time" style="color:var(--muted2);font-size:10px">—</span></div>
+</div>
+
+<div id="summary-view" class="view active">
+  <div class="section-header">
+    <span>9 ASSETS</span>
+    <span id="sig-summary" style="color:var(--muted2)">読込中...</span>
+  </div>
+  <div class="cards-grid" id="cards-grid">
+    <!-- 為替カードはJSでカードと一緒にレンダリング -->
+  </div>
+
+
+
+  <div class="refresh-wrap">
+    <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻ データ更新</button>
+    <p class="updated-txt" id="updated-txt">9銘柄を順次取得します（30秒〜2分）</p>
+  </div>
+</div>
+
+<div id="detail-view">
+  <button class="back-btn" onclick="showSummary()">← 一覧</button>
+  <div id="detail-content"></div>
+</div>
+
+<div id="signals-view" class="view">
+  <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:2px;padding:10px 0 8px;">アクティブ シグナル</div>
+  <div id="signals-list"></div>
+</div>
+
+<div id="rules-view" class="view">
+  <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:2px;padding:10px 0 8px;">買いルール一覧 · 3段階</div>
+  <div id="rules-content"></div>
+</div>
+
+<div class="bnav">
+  <div class="bnav-item active" id="nav-summary" onclick="switchTab('summary',this)"><span class="bnav-icon">📊</span><span class="bnav-lbl">一覧</span></div>
+  <div class="bnav-item" id="nav-signals" onclick="switchTab('signals',this)"><span class="bnav-icon">🎯</span><span class="bnav-lbl">シグナル</span></div>
+  <div class="bnav-item" id="nav-rules"   onclick="switchTab('rules',this)"><span class="bnav-icon">📋</span><span class="bnav-lbl">ルール</span></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// 銘柄＆3段階ルール
+// ════════════════════════════════════════════════════
+const ASSETS = [
+  { id:'2558', name:'S&P500 ETF',    market:'TSE',  yahoo:'2558.T', stooq:'2558.jp', ruleType:'ma200',
+    steps:[
+      {label:'SETUP',      maThresh:-10, rsiThresh:30},
+      {label:'BUILD',      maThresh:-15, rsiThresh:30},
+      {label:'STRONG BUY', maThresh:-20, rsiThresh:25},
+    ]},
+  { id:'1321', name:'日経平均 ETF',   market:'TSE',  yahoo:'1321.T', stooq:'1321.jp', ruleType:'ma200',
+    steps:[
+      {label:'SETUP',      maThresh:-12, rsiThresh:30},
+      {label:'BUILD',      maThresh:-18, rsiThresh:30},
+      {label:'STRONG BUY', maThresh:-25, rsiThresh:25},
+    ]},
+  { id:'FCX',  name:'銅 (Freeport)',  market:'NYSE', yahoo:'FCX',    stooq:'fcx.us',  ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-15, rsiThresh:30},
+      {label:'BUILD',      dropThresh:-25, rsiThresh:28},
+      {label:'STRONG BUY', dropThresh:-35, rsiThresh:25},
+    ]},
+  { id:'1699', name:'原油 ETF',       market:'TSE',  yahoo:'1699.T', stooq:'1699.jp', ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-15, rsiThresh:30},
+      {label:'BUILD',      dropThresh:-25, rsiThresh:28},
+      {label:'STRONG BUY', dropThresh:-35, rsiThresh:25},
+    ]},
+  { id:'213A', name:'半導体 ETF',     market:'TSE',  yahoo:'213A.T', stooq:'213a.jp', ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-15, rsiThresh:30},
+      {label:'BUILD',      dropThresh:-25, rsiThresh:28},
+      {label:'STRONG BUY', dropThresh:-35, rsiThresh:25},
+    ]},
+  { id:'1678', name:'インド ETF',     market:'TSE',  yahoo:'1678.T', stooq:'1678.jp', ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-10, rsiThresh:35},
+      {label:'BUILD',      dropThresh:-15, rsiThresh:32},
+      {label:'STRONG BUY', dropThresh:-20, rsiThresh:30},
+    ]},
+  { id:'1540', name:'金 ETF',         market:'TSE',  yahoo:'1540.T', stooq:'1540.jp', ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-5,  rsiThresh:45},
+      {label:'BUILD',      dropThresh:-8,  rsiThresh:40},
+      {label:'STRONG BUY', dropThresh:-12, rsiThresh:35},
+    ]},
+  { id:'XLU',  name:'電力 ETF',       market:'NYSE', yahoo:'XLU',    stooq:'xlu.us',  ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-8,  rsiThresh:40},
+      {label:'BUILD',      dropThresh:-12, rsiThresh:35},
+      {label:'STRONG BUY', dropThresh:-15, rsiThresh:30},
+    ]},
+  { id:'224A', name:'ウラン ETF',     market:'TSE',  yahoo:'224A.T', stooq:'224a.jp', ruleType:'drop63',
+    steps:[
+      {label:'SETUP',      dropThresh:-20, rsiThresh:30},
+      {label:'BUILD',      dropThresh:-30, rsiThresh:28},
+      {label:'STRONG BUY', dropThresh:-40, rsiThresh:25},
+    ]},
+];
+
+const STAGE_LABELS = ['','SETUP','BUILD','STRONG BUY'];
+const STAGE_EMOJIS = ['','⚡','🔥','💥'];
+
+// ── State ──
+let dataStore = {};
+let loadingSet = new Set(ASSETS.map(a=>a.id));
+let selectedId = null;
+
+// ════════════════════════════════════════════════════
+// データ取得層 — 多重フォールバック方式
+// 優先順: 1) Stooq (CSV, CORS-OK)  2) Yahoo via proxy  3) Claude API
+// ════════════════════════════════════════════════════
+
+// --- RSI calc ---
+function calcRSI(closes, period=14){
+  if (closes.length < period+1) return null;
+  let gains=0, losses=0;
+  for (let i = closes.length-period; i < closes.length; i++){
+    const d = closes[i] - closes[i-1];
+    if (d > 0) gains += d; else losses -= d;
+  }
+  const avgG = gains/period, avgL = losses/period;
+  if (avgL === 0) return 100;
+  return Math.round(100 - 100/(1 + avgG/avgL));
+}
+
+// --- Source 1: Stooq CSV (most reliable, CORS allowed) ---
+async function fetchStooqCSV(stooqSymbol){
+  // Stooq returns CSV with daily history; "d" = daily, "i=d" interval daily
+  const url = `https://stooq.com/q/d/l/?s=${stooqSymbol}&i=d`;
+  // Stooq CORS works directly in most browsers
+  const resp = await fetch(url, { mode:'cors' });
+  if (!resp.ok) throw new Error(`Stooq HTTP ${resp.status}`);
+  const text = await resp.text();
+  if (text.length < 50 || text.toLowerCase().includes('no data')) throw new Error('Stooq empty');
+
+  // CSV: Date,Open,High,Low,Close,Volume
+  const lines = text.trim().split('\n');
+  if (lines.length < 200) throw new Error('Stooq insufficient rows');
+  const header = lines[0].toLowerCase();
+  if (!header.includes('close')) throw new Error('Stooq bad format');
+  const closeIdx = header.split(',').indexOf('close');
+  if (closeIdx < 0) throw new Error('Stooq no close col');
+
+  const rows = lines.slice(1).map(line => {
+    const cols = line.split(',');
+    return { date: cols[0], close: parseFloat(cols[closeIdx]) };
+  }).filter(r => !isNaN(r.close));
+
+  if (rows.length < 200) throw new Error('Stooq <200 valid rows');
+  return rows;
+}
+
+// --- Source 2: Yahoo Finance via CORS proxy ---
+async function fetchYahooViaProxy(yahooSymbol){
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=2y&interval=1d`;
+  // Try multiple proxy services
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+  ];
+  let lastErr = null;
+  for (const proxyUrl of proxies){
+    try{
+      const resp = await fetch(proxyUrl);
+      if (!resp.ok) { lastErr = new Error(`Yahoo proxy HTTP ${resp.status}`); continue; }
+      const data = await resp.json();
+      const result = data?.chart?.result?.[0];
+      if (!result) { lastErr = new Error('Yahoo empty result'); continue; }
+      const closes = result.indicators.quote[0].close;
+      const ts = result.timestamp;
+      const valid = [];
+      for (let i = 0; i < closes.length; i++){
+        if (closes[i] != null) valid.push({ date: new Date(ts[i]*1000).toISOString().slice(0,10), close: closes[i] });
+      }
+      if (valid.length < 200) { lastErr = new Error('Yahoo <200 rows'); continue; }
+      return valid;
+    } catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('all yahoo proxies failed');
+}
+
+// --- Source 3: Claude API as last resort ---
+async function fetchViaClaudeAPI(asset){
+  const isTSE = asset.market === 'TSE';
+  const prompt = `Return ONLY JSON with current market data for ticker "${asset.yahoo}" (${asset.name}). No markdown, no explanation.
+
+{"current":<latest close>,"prev":<prior close>,"high63":<max close last 63 trading days>,"ma200":<200-day SMA>,"rsi14":<14-day RSI integer>,"currency":"${isTSE?'JPY':'USD'}","dataDate":"<YYYY-MM-DD>","error":null}
+
+If unavailable: {"error":"unavailable","current":null,"prev":null,"high63":null,"ma200":null,"rsi14":null,"currency":"${isTSE?'JPY':'USD'}","dataDate":null}
+
+Note: ${isTSE?'.T tickers = Tokyo Stock Exchange, prices in JPY':'US ticker, prices in USD'}.`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514', max_tokens:500,
+      tools:[{type:'web_search_20250305',name:'web_search'}],
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  if (!resp.ok) throw new Error(`Claude API HTTP ${resp.status}`);
+  const data = await resp.json();
+  const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+  const m = text.match(/\{[\s\S]*?\}/);
+  if (!m) throw new Error('No JSON in Claude response');
+  const parsed = JSON.parse(m[0]);
+  if (parsed.error || parsed.current == null) throw new Error(parsed.error || 'no data');
+  return parsed;
+}
+
+// --- Compute metrics from price series ---
+function computeFromSeries(rows, currency){
+  // rows = [{date, close}, ...] sorted ascending
+  const closes = rows.map(r => r.close);
+  const current = closes[closes.length-1];
+  const prev = closes[closes.length-2] ?? current;
+  const high63 = Math.max(...closes.slice(-63));
+  const last200 = closes.slice(-200);
+  const ma200 = last200.reduce((a,b)=>a+b,0) / last200.length;
+  const rsi14 = calcRSI(closes);
+  return {
+    current, prev, high63, ma200, rsi14, currency,
+    dataDate: rows[rows.length-1].date,
+    changePct: prev ? ((current-prev)/prev)*100 : 0,
+    changeAbs: current - prev,
+    dropFrom63: ((current-high63)/high63)*100,
+    devFromMA:  ((current-ma200)/ma200)*100,
+    source: rows._source || ''
+  };
+}
+
+// --- Main fetcher with fallback chain ---
+async function fetchAssetData(asset){
+  const currency = asset.market === 'TSE' ? 'JPY' : 'USD';
+  let lastErr = null;
+
+  // Try Stooq first
+  try {
+    const rows = await fetchStooqCSV(asset.stooq);
+    rows._source = 'stooq';
+    const m = computeFromSeries(rows, currency);
+    m.source = 'stooq';
+    return m;
+  } catch(e){ lastErr = e; console.warn(`[${asset.id}] Stooq failed:`, e.message); }
+
+  // Fallback to Yahoo via proxy
+  try {
+    const rows = await fetchYahooViaProxy(asset.yahoo);
+    const m = computeFromSeries(rows, currency);
+    m.source = 'yahoo';
+    return m;
+  } catch(e){ lastErr = e; console.warn(`[${asset.id}] Yahoo failed:`, e.message); }
+
+  // Fallback to Claude API
+  try {
+    const raw = await fetchViaClaudeAPI(asset);
+    return {
+      current: raw.current, prev: raw.prev,
+      high63: raw.high63, ma200: raw.ma200, rsi14: raw.rsi14,
+      currency: raw.currency || currency,
+      dataDate: raw.dataDate,
+      changePct: raw.prev ? ((raw.current-raw.prev)/raw.prev)*100 : 0,
+      changeAbs: raw.current - (raw.prev||raw.current),
+      dropFrom63: raw.high63 ? ((raw.current-raw.high63)/raw.high63)*100 : null,
+      devFromMA:  raw.ma200  ? ((raw.current-raw.ma200)/raw.ma200)*100 : null,
+      source: 'claude'
+    };
+  } catch(e){ lastErr = e; console.warn(`[${asset.id}] Claude failed:`, e.message); }
+
+  throw lastErr || new Error('all sources failed');
+}
+
+// --- VIX fetcher ---
+async function fetchVIX(){
+  // Try Stooq first
+  try {
+    const rows = await fetchStooqCSV('^vix');
+    return rows[rows.length-1].close;
+  } catch(e){ console.warn('VIX Stooq failed:', e.message); }
+  try {
+    const rows = await fetchYahooViaProxy('^VIX');
+    return rows[rows.length-1].close;
+  } catch(e){ console.warn('VIX Yahoo failed:', e.message); }
+  return null;
+}
+
+// ════════════════════════════════════════════════════
+// 表示ロジック
+// ════════════════════════════════════════════════════
+function getStage(asset, d){
+  if (!d || d.error) return 0;
+  const isDrop = asset.ruleType === 'drop63';
+  let stage = 0;
+  asset.steps.forEach((step, i) => {
+    const mainVal = isDrop ? d.dropFrom63 : d.devFromMA;
+    const mainThresh = isDrop ? step.dropThresh : step.maThresh;
+    if (mainVal != null && mainVal <= mainThresh && d.rsi14 != null && d.rsi14 <= step.rsiThresh){
+      stage = i + 1;
+    }
+  });
+  return stage;
+}
+
+function fmtP(v,cur){ if(v==null)return'—'; return cur==='JPY'?v.toLocaleString('ja-JP',{maximumFractionDigits:0}):'$'+v.toFixed(2); }
+function fmtPct(v){ return v!=null?(v>=0?'+':'')+v.toFixed(2)+'%':'—'; }
+
+function renderCards(){
+  const grid = document.getElementById('cards-grid');
+  let c1=0,c2=0,c3=0,loaded=0;
+
+  grid.innerHTML = ASSETS.map(asset => {
+    const d = dataStore[asset.id];
+    const loading = loadingSet.has(asset.id);
+
+    if (!d || loading){
+      return `<div class="asset-card stage-0">
+        <div class="card-stripe"></div>
+        <div class="card-top"><span class="card-ticker">${asset.id}</span><span class="stage-badge sb-0">—</span></div>
+        <div class="card-name">${asset.name}</div>
+        <div class="card-loading">${loading?'⟳ 取得中...':d&&d.error?'⚠ 失敗':'—'}</div>
+        <div class="stage-bar"><div class="stage-pip"></div><div class="stage-pip"></div><div class="stage-pip"></div></div>
+      </div>`;
+    }
+    if (d.error){
+      return `<div class="asset-card stage-0">
+        <div class="card-stripe"></div>
+        <div class="card-top"><span class="card-ticker">${asset.id}</span><span class="stage-badge sb-0">ERR</span></div>
+        <div class="card-name">${asset.name}</div>
+        <div class="card-loading error-txt">⚠ 取得失敗</div>
+        <div class="stage-bar"><div class="stage-pip"></div><div class="stage-pip"></div><div class="stage-pip"></div></div>
+      </div>`;
+    }
+
+    loaded++;
+    const stage = getStage(asset, d);
+    if(stage===1)c1++; if(stage===2)c2++; if(stage===3)c3++;
+
+    const isDrop = asset.ruleType === 'drop63';
+    // Always show all 3 metrics now: 63日落, MA乖離, RSI
+    const dropC = d.dropFrom63!=null && d.dropFrom63 <= asset.steps[0].dropThresh ? 'mv-ok'
+                 : d.dropFrom63!=null && d.dropFrom63 < -3 ? 'mv-warn' : 'mv-n';
+    const maC   = d.devFromMA!=null && d.devFromMA <= (asset.steps[0].maThresh ?? -10) ? 'mv-ok'
+                 : d.devFromMA!=null && d.devFromMA < -3 ? 'mv-warn' : 'mv-n';
+    const rsiC  = d.rsi14!=null && d.rsi14 <= asset.steps[0].rsiThresh ? 'mv-ok'
+                 : d.rsi14!=null && d.rsi14 <= asset.steps[0].rsiThresh+8 ? 'mv-warn' : 'mv-n';
+
+    // primary metric label (the rule's main indicator)
+    const primaryDrop = isDrop ? '★' : '';
+    const primaryMA   = isDrop ? '' : '★';
+
+    const pips = [1,2,3].map(i =>
+      `<div class="stage-pip ${i<=stage?'active-'+i:''}"></div>`
+    ).join('');
+
+    return `<div class="asset-card stage-${stage}" onclick="showDetail('${asset.id}')">
+      <div class="card-stripe"></div>
+      <div class="card-top">
+        <span class="card-ticker">${asset.id}</span>
+        <span class="stage-badge sb-${stage}">${stage>0?STAGE_EMOJIS[stage]+' '+STAGE_LABELS[stage]:'HOLD'}</span>
+      </div>
+      <div class="card-name">${asset.name}</div>
+      <div class="card-price">${fmtP(d.current,d.currency)}</div>
+      <div class="card-chg ${d.changePct>=0?'pos':'neg'}">${fmtPct(d.changePct)}</div>
+      <div class="card-metrics">
+        <div class="m-row"><span class="m-lbl">${primaryDrop}63日</span><span class="m-val ${dropC}">${fmtPct(d.dropFrom63)}</span></div>
+        <div class="m-row"><span class="m-lbl">${primaryMA}MA200</span><span class="m-val ${maC}">${fmtPct(d.devFromMA)}</span></div>
+        <div class="m-row"><span class="m-lbl">RSI</span><span class="m-val ${rsiC}">${d.rsi14??'—'}</span></div>
+      </div>
+      <div class="stage-bar">${pips}</div>
+    </div>`;
+  }).join('');
+
+  // 為替カードを最後に追加（224Aの右隣）
+  const fxHtml = `<div class="fx-card" id="fx-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:4px;">
+      <span class="fx-pair">USD/JPY</span>
+      <span class="fx-tag">為替</span>
+    </div>
+    <div class="fx-sub">米ドル／日本円</div>
+    <div class="fx-rate" id="fx-rate">—</div>
+    <div class="fx-unit">円／ドル</div>
+    <div class="fx-chg" id="fx-chg" style="color:var(--muted2)">— 前日比</div>
+    <div class="fx-divider"></div>
+    <div class="fx-row"><span class="fx-lbl">高値</span><span class="fx-val" id="fx-high">—</span></div>
+    <div class="fx-row" style="margin-top:2px;"><span class="fx-lbl">安値</span><span class="fx-val" id="fx-low">—</span></div>
+  </div>`;
+  grid.innerHTML += fxHtml;
+  document.getElementById('cnt-2').textContent = c2;
+  document.getElementById('cnt-3').textContent = c3;
+  document.getElementById('loaded-cnt').textContent = loaded+'/9';
+  document.getElementById('sig-summary').textContent = `💥${c3} 🔥${c2} ⚡${c1}`;
+}
+
+function showDetail(id){
+  selectedId = id;
+  const asset = ASSETS.find(a=>a.id===id);
+  const d = dataStore[id];
+  document.getElementById('summary-view').classList.remove('active');
+  document.getElementById('signals-view').classList.remove('active');
+  document.getElementById('rules-view').classList.remove('active');
+  document.getElementById('detail-view').style.display = 'block';
+
+  if (!d||d.error){
+    document.getElementById('detail-content').innerHTML = `<div style="background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.2);border-radius:10px;padding:14px;font-family:var(--mono);font-size:11px;color:var(--danger);">データ取得失敗。「データ更新」で再試行してください。</div>`;
+    return;
+  }
+
+  const stage = getStage(asset, d);
+  const isDrop = asset.ruleType === 'drop63';
+  const stageColor = ['var(--muted2)','var(--s1-text)','var(--s2-text)','var(--s3-text)'][stage];
+
+  const stepsHtml = asset.steps.map((step,i)=>{
+    const sNum = i+1;
+    const mainThresh = isDrop ? step.dropThresh : step.maThresh;
+    const mainVal = isDrop ? d.dropFrom63 : d.devFromMA;
+    const mainMet = mainVal!=null && mainVal<=mainThresh;
+    const rsiMet  = d.rsi14!=null && d.rsi14<=step.rsiThresh;
+    const bothMet = mainMet && rsiMet;
+    const metClass = bothMet ? `step-met-${sNum}` : '';
+    const mainLabel = isDrop ? `下落率 ≤ ${mainThresh}%` : `MA乖離 ≤ ${mainThresh}%`;
+    return `<div class="step-row ${metClass}">
+      <span class="step-num" style="color:${{1:'var(--s1-text)',2:'var(--s2-text)',3:'var(--s3-text)'}[sNum]}">${sNum}</span>
+      <span class="step-label" style="color:${{1:'var(--s1-text)',2:'var(--s2-text)',3:'var(--s3-text)'}[sNum]}">${step.label}</span>
+      <span class="step-conds">${mainLabel} / RSI ≤ ${step.rsiThresh}</span>
+      <span class="step-status ${bothMet?'ss-met':'ss-unmet'}">${bothMet?'✓':'—'}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="d-header fade-up">
+      <div class="d-top">
+        <div><div class="d-ticker">${asset.id}</div><div class="d-name">${asset.name} · ${asset.market}</div></div>
+        <span class="stage-badge sb-${stage}" style="font-size:9px;padding:3px 9px;">${stage>0?STAGE_EMOJIS[stage]+' '+STAGE_LABELS[stage]:'⬜ HOLD'}</span>
+      </div>
+      <div class="d-price">${fmtP(d.current,d.currency)}</div>
+      <div class="d-chg ${d.changePct>=0?'pos':'neg'}">${fmtPct(d.changePct)}</div>
+      <div style="display:flex;gap:3px;margin-top:10px;">${[1,2,3].map(i=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=stage?['#ffe040','#ff9a20','#ff4466'][i-1]:'var(--border2)'}"></div>`).join('')}</div>
+      ${d.dataDate?`<div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:7px;">データ日付: ${d.dataDate} ${d.source?`· ${d.source}`:''}</div>`:''}
+    </div>
+
+    <div class="d-section fade-up">
+      <div class="d-sec-title">現在の指標値（全3指標）</div>
+      <div class="d-metric">
+        <div><div class="dm-name">63日高値からの下落率 ${isDrop?'★':''}</div><div class="dm-sub">63日高値: ${fmtP(d.high63,d.currency)}</div></div>
+        <div style="text-align:right"><div class="dm-val" style="color:${d.dropFrom63!=null && isDrop && d.dropFrom63<=asset.steps[0].dropThresh?stageColor:'var(--text)'}">${fmtPct(d.dropFrom63)}</div></div>
+      </div>
+      <div class="d-metric">
+        <div><div class="dm-name">200日移動平均乖離率 ${isDrop?'':'★'}</div><div class="dm-sub">200日MA: ${fmtP(d.ma200,d.currency)}</div></div>
+        <div style="text-align:right"><div class="dm-val" style="color:${d.devFromMA!=null && !isDrop && d.devFromMA<=asset.steps[0].maThresh?stageColor:'var(--text)'}">${fmtPct(d.devFromMA)}</div></div>
+      </div>
+      <div class="d-metric">
+        <div><div class="dm-name">RSI（14日）</div><div class="dm-sub">売られすぎ域: ≤30</div></div>
+        <div style="text-align:right"><div class="dm-val" style="color:${d.rsi14!=null && d.rsi14<=asset.steps[0].rsiThresh?stageColor:'var(--text)'}">${d.rsi14??'—'}</div></div>
+      </div>
+      <div style="margin-top:8px;padding:7px 9px;font-size:9px;color:var(--muted2);background:rgba(0,229,204,.04);border-radius:6px;line-height:1.5;">★ = 買いルールの主指標（${isDrop?'63日高値からの下落率':'200日移動平均乖離率'}）</div>
+    </div>
+
+    <div class="d-section fade-up">
+      <div class="d-sec-title">3段階 買いシグナル</div>
+      <div class="steps-grid">${stepsHtml}</div>
+      ${stage>0?`<div style="margin-top:10px;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${['var(--s1-bg)','var(--s2-bg)','var(--s3-bg)'][stage-1]};border:1px solid ${['var(--s1-border)','var(--s2-border)','var(--s3-border)'][stage-1]};color:${stageColor};">${STAGE_EMOJIS[stage]} 現在のシグナル: <strong>${STAGE_LABELS[stage]}</strong></div>`
+      :`<div style="margin-top:10px;padding:8px 10px;border-radius:8px;font-size:10px;color:var(--muted2);">まだ条件を達成していません</div>`}
+    </div>`;
+}
+
+function showSummary(){
+  document.getElementById('detail-view').style.display='none';
+  document.getElementById('signals-view').classList.remove('active');
+  document.getElementById('rules-view').classList.remove('active');
+  document.getElementById('summary-view').classList.add('active');
+  selectedId=null;
+}
+
+function switchTab(tab,el){
+  document.querySelectorAll('.bnav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('detail-view').style.display='none';
+  ['summary','signals','rules'].forEach(v=>{
+    document.getElementById(v+'-view').classList.remove('active');
+  });
+  document.getElementById(tab+'-view').classList.add('active');
+  if(tab==='signals') renderSignals();
+  if(tab==='rules')   renderRules();
+}
+
+function renderSignals(){
+  const list = document.getElementById('signals-list');
+  const active = ASSETS
+    .map(a=>({asset:a, stage:getStage(a,dataStore[a.id]), d:dataStore[a.id]}))
+    .filter(x=>x.stage>0 && x.d && !x.d.error)
+    .sort((a,b)=>b.stage-a.stage);
+
+  if(!active.length){
+    list.innerHTML='<div style="text-align:center;color:var(--muted2);font-family:var(--mono);font-size:11px;padding:30px 0;">現在アクティブなシグナルはありません</div>';
+    return;
+  }
+
+  list.innerHTML = active.map(({asset,stage,d})=>{
+    const sc = ['','var(--s1-text)','var(--s2-text)','var(--s3-text)'][stage];
+    const sbg= ['','var(--s1-bg)','var(--s2-bg)','var(--s3-bg)'][stage];
+    const sb = ['','var(--s1-border)','var(--s2-border)','var(--s3-border)'][stage];
+    return `<div class="sig-card" style="border-color:${sb};background:${sbg};" onclick="showDetail('${asset.id}');switchTab('summary',document.getElementById('nav-summary'))">
+      <div class="sig-card-top">
+        <div><div class="sig-ticker">${asset.id}</div><div class="sig-name">${asset.name}</div></div>
+        <span class="stage-badge sb-${stage}" style="font-size:9px;padding:3px 9px;">${STAGE_EMOJIS[stage]} ${STAGE_LABELS[stage]}</span>
+      </div>
+      <div class="sig-metrics">
+        <div class="sig-m"><div class="sig-m-lbl">63日落</div><div class="sig-m-val" style="color:${sc}">${fmtPct(d.dropFrom63)}</div></div>
+        <div class="sig-m"><div class="sig-m-lbl">MA乖離</div><div class="sig-m-val" style="color:${sc}">${fmtPct(d.devFromMA)}</div></div>
+        <div class="sig-m"><div class="sig-m-lbl">RSI14</div><div class="sig-m-val" style="color:${sc}">${d.rsi14??'—'}</div></div>
+        <div class="sig-m"><div class="sig-m-lbl">現在値</div><div class="sig-m-val">${fmtP(d.current,d.currency)}</div></div>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:10px;">${[1,2,3].map(i=>`<div style="flex:1;height:3px;border-radius:2px;background:${i<=stage?['#ffe040','#ff9a20','#ff4466'][i-1]:'var(--border2)'}"></div>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRules(){
+  const el = document.getElementById('rules-content');
+  el.innerHTML = ASSETS.map(asset => {
+    const isDrop = asset.ruleType==='drop63';
+    const rows = asset.steps.map((step,i)=>{
+      const sNum = i+1;
+      const mainThresh = isDrop ? step.dropThresh : step.maThresh;
+      return `<tr>
+        <td><span class="stage-label-pill slp-${sNum}">${STAGE_EMOJIS[sNum]} ${step.label}</span></td>
+        <td class="rt-${sNum}">${mainThresh}%</td>
+        <td class="rt-${sNum}">≤ ${step.rsiThresh}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="rules-asset">
+      <div class="rules-asset-header">
+        <div><div class="rh-ticker">${asset.id} <span style="font-size:10px;color:var(--muted2);font-family:var(--sans);">${asset.name}</span></div></div>
+        <span class="rh-type">${isDrop?'63日高値比':'200日MA比'}</span>
+      </div>
+      <table class="rules-table">
+        <thead><tr><th>ステップ</th><th>${isDrop?'下落率':'乖離率'}</th><th>RSI条件</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+// --- FX fetcher (USD/JPY) ---
+async function fetchUSDJPY(){
+  // Try Stooq first
+  try {
+    const rows = await fetchStooqCSV('usdjpy');
+    const last = rows[rows.length-1].close;
+    const prev = rows[rows.length-2]?.close ?? last;
+    const high = Math.max(...rows.slice(-1).map(r=>r.close)); // today approx
+    const low  = Math.min(...rows.slice(-1).map(r=>r.close));
+    return { rate: last, prev, high, low, source:'stooq' };
+  } catch(e){ console.warn('FX Stooq failed:', e.message); }
+  // Fallback: Yahoo Finance USDJPY=X
+  try {
+    const rows = await fetchYahooViaProxy('USDJPY=X');
+    const last = rows[rows.length-1].close;
+    const prev = rows[rows.length-2]?.close ?? last;
+    return { rate: last, prev, high: last, low: last, source:'yahoo' };
+  } catch(e){ console.warn('FX Yahoo failed:', e.message); }
+  return null;
+}
+
+function updateFX(fx){
+  if (!fx) {
+    document.getElementById('fx-rate').textContent = '—';
+    document.getElementById('fx-chg').textContent = '取得失敗';
+    return;
+  }
+  const { rate, prev, high, low } = fx;
+  const chg = prev ? ((rate - prev) / prev) * 100 : 0;
+  const chgAbs = rate - prev;
+  const isUp = chg >= 0;
+
+  document.getElementById('fx-rate').textContent = rate.toFixed(2);
+  document.getElementById('fx-rate').style.color = isUp ? 'var(--danger)' : 'var(--safe)'; // 円安=danger, 円高=safe
+  document.getElementById('fx-chg').textContent =
+    `${isUp ? '+' : ''}${chgAbs.toFixed(2)} (${isUp ? '+' : ''}${chg.toFixed(2)}%)`;
+  document.getElementById('fx-chg').style.color = isUp ? 'var(--danger)' : 'var(--safe)';
+  document.getElementById('fx-high').textContent = high.toFixed(2);
+  document.getElementById('fx-low').textContent  = low.toFixed(2);
+}
+function updateVIX(vix){
+  const el = document.getElementById('vix-val');
+  const fill = document.getElementById('vix-fill');
+  const marker = document.getElementById('vix-marker');
+  const status = document.getElementById('vix-status');
+  if (vix == null){
+    el.textContent='—';
+    el.style.color='var(--muted2)';
+    status.textContent='取得失敗';
+    status.style.color='var(--muted2)';
+    return;
+  }
+  el.textContent = vix.toFixed(2);
+  const pct = Math.min(100, (vix/60)*100);
+  fill.style.width = pct + '%';
+  marker.style.left = pct + '%';
+  let label, color;
+  if (vix < 15)      { label='極度安定'; color='var(--safe)'; }
+  else if (vix < 20) { label='安定';     color='var(--safe)'; }
+  else if (vix < 25) { label='通常';     color='var(--blue)'; }
+  else if (vix < 30) { label='警戒';     color='var(--warn)'; }
+  else if (vix < 40) { label='恐怖';     color='var(--danger)'; }
+  else               { label='極度恐怖'; color='var(--danger)'; }
+  status.textContent = label;
+  status.style.color = color;
+  el.style.color = color;
+}
+
+// ── Load all ──
+async function loadAll(){
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled=true; btn.textContent='取得中... (9銘柄)';
+  loadingSet=new Set(ASSETS.map(a=>a.id));
+  dataStore={};
+  renderCards();
+
+  // VIX & FX in parallel
+  fetchVIX().then(updateVIX).catch(()=>updateVIX(null));
+  fetchUSDJPY().then(updateFX).catch(()=>updateFX(null));
+
+  // Assets
+  await Promise.allSettled(ASSETS.map(async asset=>{
+    try{
+      dataStore[asset.id] = await fetchAssetData(asset);
+    }catch(e){
+      dataStore[asset.id] = { error: e.message };
+      console.error(`[${asset.id}] all sources failed:`, e);
+    }finally{
+      loadingSet.delete(asset.id);
+      renderCards();
+    }
+  }));
+
+  const now=new Date();
+  const ts=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('upd-time').textContent=ts;
+  document.getElementById('updated-txt').textContent=`最終更新: ${now.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})} ${ts}`;
+  document.getElementById('hdate').textContent=now.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'})+' · 3段階シグナル';
+  btn.disabled=false; btn.textContent='↻ データ更新';
+  if(selectedId) showDetail(selectedId);
+}
+
+// Init
+renderCards();
+renderRules();
+loadAll();
+</script>
+</body>
+</html>
